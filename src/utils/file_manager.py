@@ -1,6 +1,6 @@
 import os
 
-from .exceptions import NotFileException, FileNotFoundException
+from exceptions import FileNotFoundException, NotFileException
 
 class FileManager:
     def __init__(self, base_path: str) -> None:
