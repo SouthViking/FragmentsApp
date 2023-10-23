@@ -66,6 +66,13 @@ class FragmentsProcessor:
         self.export_fragments(fragments)
 
     def calculate_fragments_relations(self, fragments: List[FragmentData], max_related_fragments: int):
+        """
+            Calcula los fragmentos relacionados y agrega su referencia a la información de cada uno.
+
+            Args:
+                fragments: La lista de fragmentos para calcular las relaciones con otros fragmentos.
+                max_related_fragments: El número máximo de fragmentos relacionados a incluir en la información del fragmento.
+        """
         embeddings: List[List[float]] = [get_embedding(fragment['content'], self.models['embedding']) for fragment in fragments]
 
         for index, fragment in enumerate(fragments):
