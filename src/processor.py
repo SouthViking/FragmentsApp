@@ -2,6 +2,7 @@ import json
 from typing import List, Tuple, Type, TypeVar
 
 import openai
+from openai.embeddings_utils import get_embedding, distances_from_embeddings, indices_of_nearest_neighbors_from_distances
 
 from utils import FileManager, get_token_length_from_text
 from types_ import ArticleElement, ChatCompletionResponse, DataFolderConfig, ElementType, FragmentData, OpenAIConfig, OpenAIModelsConfig
@@ -11,6 +12,7 @@ T = TypeVar('T')
 class FragmentsProcessor:
     # TODO: documentación
     MAX_TOKENS_TO_SEND = 1500
+    MAX_RELATED_FRAGMENTS = 3
 
     def __init__(self, folder_paths: DataFolderConfig, openai_config: OpenAIConfig):
         openai.api_key = openai_config['api_key']
@@ -20,13 +22,12 @@ class FragmentsProcessor:
         self.file_manager = FileManager(folder_paths['input_path'])
 
     def process_file(self, file_with_extension: str):
-        elements = self.get_sanitized_data_from_jsonl_file(file_with_extension, (ElementType.ARTICLE.value, ArticleElement))
+        counter = 0
         fragments: List[FragmentData] = []
+        elements = self.get_sanitized_data_from_jsonl_file(file_with_extension, (ElementType.ARTICLE.value, ArticleElement))        
         
         for element in elements:
-            tokens_length = get_token_length_from_text(element['text'], self.models['base'])
-
-            if tokens_length > self.MAX_TOKENS_TO_SEND:
+            if get_token_length_from_text(element['text'], self.models['base']) > self.MAX_TOKENS_TO_SEND:
                 # TODO: Debido a que el texto es muy largo, hay que dividirlo y enviarlo por partes. (batch)
                 # TODO: Agregar control igualmente del máximo de tokens permitidos por el modelo a utilizar.
                 continue
@@ -53,17 +54,31 @@ class FragmentsProcessor:
             )
             
             fragment_data: FragmentData = json.loads(response['choices'][0]['message']['function_call']['arguments'].strip().replace('\n', ''))
+            fragment_data['id'] = counter
             fragment_data['content'] = element['text']
             # TODO: Definir referencia a artículo original
 
             fragments.append(fragment_data)
 
-        self.calculate_fragments_relations(fragments)
+            counter += 1
+
+        self.calculate_fragments_relations(fragments, self.MAX_RELATED_FRAGMENTS)
         self.export_fragments(fragments)
 
-    # TODO: Calcular relación con otros fragmentos
-    def calculate_fragments_relations(self, fragments: List[FragmentData]):
-        pass
+    def calculate_fragments_relations(self, fragments: List[FragmentData], max_related_fragments: int):
+        embeddings: List[List[float]] = [get_embedding(fragment['content'], self.models['embedding']) for fragment in fragments]
+
+        for index, fragment in enumerate(fragments):
+            relation_distances = distances_from_embeddings(embeddings[index], embeddings, distance_metric = 'cosine')
+            # Se utiliza [1:] intencionalmente para poder remover el primer valor, el cual corresponderá al mismo fragmento.
+            indices_of_closest_fragments: List[int] = indices_of_nearest_neighbors_from_distances(relation_distances)[1:]
+
+            fragment['related_fragments'] = []
+            fragment['related_fragments_titles'] = []
+
+            for related_fragment_index in indices_of_closest_fragments[:max_related_fragments]:
+                fragment['related_fragments'].append(fragments[related_fragment_index]['id'])
+                fragment['related_fragments_titles'].append(fragments[related_fragment_index]['title'])
 
     # TODO: Exportar fragmentos a carpeta de outputs
     def export_fragments(self, fragments: List[FragmentData]):

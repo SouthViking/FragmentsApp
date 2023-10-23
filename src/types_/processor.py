@@ -32,9 +32,11 @@ class DataFolderConfig(TypedDict):
     output_path: str
 
 class FragmentData(TypedDict):
+    id: int
     title: str
     tags: List[str]
     summary: str
     original_reference: str
     content: str
-    related_fragments: List[str]
+    related_fragments: List[int]
+    related_fragments_titles: List[str]
