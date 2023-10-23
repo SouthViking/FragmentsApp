@@ -1,4 +1,5 @@
 import json
+from urllib.parse import urlparse
 from typing import List, Tuple, Type, TypeVar
 
 import openai
@@ -56,7 +57,7 @@ class FragmentsProcessor:
             fragment_data: FragmentData = json.loads(response['choices'][0]['message']['function_call']['arguments'].strip().replace('\n', ''))
             fragment_data['id'] = counter
             fragment_data['content'] = element['text']
-            # TODO: Definir referencia a artículo original
+            fragment_data['original_reference'] = urlparse(element['url']).path[1:].split('/')[0]
 
             fragments.append(fragment_data)
 
