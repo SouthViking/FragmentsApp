@@ -1,3 +1,4 @@
+import os
 import json
 from io import TextIOWrapper
 from datetime import datetime
@@ -21,15 +22,20 @@ class FragmentsProcessor:
         openai.api_key = openai_config['api_key']
         self.models: OpenAIModelsConfig = openai_config['models']
 
-        self.output_folder_path = folder_paths['output_path']
-        self.file_manager = FileManager(folder_paths['input_path'])
+        self.file_manager = FileManager()
+        self.folders_config = folder_paths
 
     def process_file(self, file_with_extension: str):
         counter = 0
         fragments: List[FragmentData] = []
-        elements = self.get_sanitized_data_from_jsonl_file(file_with_extension, (ElementType.ARTICLE.value, ArticleElement))        
+
+        absolute_file_path = os.path.normpath(os.path.join(self.folders_config['input_path'], file_with_extension))
+        elements = self.get_sanitized_data_from_jsonl_file(absolute_file_path, (ElementType.ARTICLE.value, ArticleElement))        
         
-        for element in elements:
+        for index, element in enumerate(elements):
+            if index == 5:
+                break
+
             if get_token_length_from_text(element['text'], self.models['base']) > self.MAX_TOKENS_TO_SEND:
                 # TODO: Debido a que el texto es muy largo, hay que dividirlo y enviarlo por partes. (batch)
                 # TODO: Agregar control igualmente del máximo de tokens permitidos por el modelo a utilizar.
@@ -91,22 +97,22 @@ class FragmentsProcessor:
                 fragment['related_fragments_titles'].append(fragments[related_fragment_index]['title'])
 
     def export_fragments(self, fragments: List[FragmentData]):
-        self.file_manager.set_base_path(self.output_folder_path)
+        current_timestamp = datetime.now().replace(microsecond = 0).timestamp()
+        absolute_output_file_path = os.path.normpath(os.path.join(self.folders_config['output_path'], f'fragments_{current_timestamp}.jsonl'))
 
         def fragments_writer_callback(file: TextIOWrapper):
             for fragment in fragments:
                 json.dump(fragment, file, ensure_ascii = False, indent = 4)
                 file.write('\n')
 
-        current_timestamp = datetime.now().replace(microsecond = 0).timestamp()
-        self.file_manager.write_to_file(f'result_{current_timestamp}.jsonl', fragments_writer_callback)
+        self.file_manager.write_to_file(absolute_output_file_path, fragments_writer_callback)
 
-    def get_sanitized_data_from_jsonl_file(self, file_with_extension: str, element_type_target: Tuple[str, Type[T]]) -> List[T]:
+    def get_sanitized_data_from_jsonl_file(self, absolute_file_path: str, element_type_target: Tuple[str, Type[T]]) -> List[T]:
         """
             Permite obtener los datos desde el archivo jsonl especificado y convertirlos a diccionarios válidos.
 
             Args:
-                file_with_extension: El nombre y extensión del archivo de donde extraer los datos.
+                absolute_file_path: La ruta absoluta del archivo del cual se van a obtener los datos.
                 element_type_target: Una tupla que contiene en primer lugar el nombre del tipo a filtrar y en segundi
                     lugar el tipo.
                     
@@ -114,7 +120,7 @@ class FragmentsProcessor:
                 Retorna una lista de elementos filtrados, sanitizados y convertidos en diccionarios.
         """
         try:
-            raw_jsonl_data = self.file_manager.get_file_content(file_with_extension)
+            raw_jsonl_data = self.file_manager.get_file_content(absolute_file_path)
             raw_jsonl_data = list(raw_jsonl_data.strip().split('\n'))
 
             sanitized_elements: List[T] = []
@@ -130,4 +136,4 @@ class FragmentsProcessor:
             return sanitized_elements
         
         except Exception as error:
-            raise Exception(f'Error: Se ha producido un error durante la sanitización del archivo {file_with_extension}: {str(error)}')
+            raise Exception(f'Error: Se ha producido un error durante la sanitización del archivo {absolute_file_path}: {str(error)}')

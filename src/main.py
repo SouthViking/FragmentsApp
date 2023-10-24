@@ -27,4 +27,4 @@ if __name__ == '__main__':
     }
 
     processor = FragmentsProcessor(folders_config, openai_config)
-    processor.process_file(os.environ.get('INPUT_FILENAME'))
+    processor.process_file(os.environ.get('INPUT_FILE'))
