@@ -5,11 +5,10 @@ from dotenv import load_dotenv
 from processor import FragmentsProcessor
 from types_ import DataFolderConfig, OpenAIConfig
 
-load_dotenv()
+def main():
+    load_dotenv()
 
-if __name__ == '__main__':
     current_dir_path = os.path.dirname(os.path.realpath(__file__))
-    
     default_input_path = os.path.normpath(os.path.join(current_dir_path, 'data', 'input'))
     default_output_path = os.path.normpath(os.path.join(current_dir_path, 'data', 'output'))
 
@@ -28,3 +27,6 @@ if __name__ == '__main__':
 
     processor = FragmentsProcessor(folders_config, openai_config)
     processor.process_file(os.environ.get('INPUT_FILE'))
+
+if __name__ == '__main__':
+    main()
