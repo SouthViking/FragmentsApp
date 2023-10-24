@@ -32,10 +32,7 @@ class FragmentsProcessor:
         absolute_file_path = os.path.normpath(os.path.join(self.folders_config['input_path'], file_with_extension))
         elements = self.get_sanitized_data_from_jsonl_file(absolute_file_path, (ElementType.ARTICLE.value, ArticleElement))        
         
-        for index, element in enumerate(elements):
-            if index == 5:
-                break
-
+        for element in elements:
             if get_token_length_from_text(element['text'], self.models['base']) > self.MAX_TOKENS_TO_SEND:
                 # TODO: Debido a que el texto es muy largo, hay que dividirlo y enviarlo por partes. (batch)
                 # TODO: Agregar control igualmente del máximo de tokens permitidos por el modelo a utilizar.
