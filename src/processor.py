@@ -1,4 +1,6 @@
 import json
+from io import TextIOWrapper
+from datetime import datetime
 from urllib.parse import urlparse
 from typing import List, Tuple, Type, TypeVar
 
@@ -88,10 +90,17 @@ class FragmentsProcessor:
                 fragment['related_fragments'].append(fragments[related_fragment_index]['id'])
                 fragment['related_fragments_titles'].append(fragments[related_fragment_index]['title'])
 
-    # TODO: Exportar fragmentos a carpeta de outputs
     def export_fragments(self, fragments: List[FragmentData]):
-        pass
-            
+        self.file_manager.set_base_path(self.output_folder_path)
+
+        def fragments_writer_callback(file: TextIOWrapper):
+            for fragment in fragments:
+                json.dump(fragment, file, ensure_ascii = False, indent = 4)
+                file.write('\n')
+
+        current_timestamp = datetime.now().replace(microsecond = 0).timestamp()
+        self.file_manager.write_to_file(f'result_{current_timestamp}.jsonl', fragments_writer_callback)
+
     # TODO: Agregar doc strings
     def get_sanitized_data_from_jsonl_file(self, file_with_extension: str, element_type_target: Tuple[str, Type[T]]) -> List[T]:
         try:
