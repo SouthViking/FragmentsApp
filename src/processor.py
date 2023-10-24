@@ -101,8 +101,18 @@ class FragmentsProcessor:
         current_timestamp = datetime.now().replace(microsecond = 0).timestamp()
         self.file_manager.write_to_file(f'result_{current_timestamp}.jsonl', fragments_writer_callback)
 
-    # TODO: Agregar doc strings
     def get_sanitized_data_from_jsonl_file(self, file_with_extension: str, element_type_target: Tuple[str, Type[T]]) -> List[T]:
+        """
+            Permite obtener los datos desde el archivo jsonl especificado y convertirlos a diccionarios válidos.
+
+            Args:
+                file_with_extension: El nombre y extensión del archivo de donde extraer los datos.
+                element_type_target: Una tupla que contiene en primer lugar el nombre del tipo a filtrar y en segundi
+                    lugar el tipo.
+                    
+            Returns:
+                Retorna una lista de elementos filtrados, sanitizados y convertidos en diccionarios.
+        """
         try:
             raw_jsonl_data = self.file_manager.get_file_content(file_with_extension)
             raw_jsonl_data = list(raw_jsonl_data.strip().split('\n'))
