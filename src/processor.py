@@ -1,15 +1,27 @@
-import os
-import json
-from io import TextIOWrapper
 from datetime import datetime
-from urllib.parse import urlparse
+import json
+import os
+from io import TextIOWrapper
 from typing import List, Tuple, Type, TypeVar
+from urllib.parse import urlparse
 
 import openai
-from openai.embeddings_utils import get_embedding, distances_from_embeddings, indices_of_nearest_neighbors_from_distances
+from openai.embeddings_utils import (
+    distances_from_embeddings,
+    get_embedding,
+    indices_of_nearest_neighbors_from_distances,
+)
 
+from types_ import (
+    ArticleElement,
+    ChatCompletionResponse,
+    DataFolderConfig,
+    ElementType,
+    FragmentData,
+    OpenAIConfig,
+    OpenAIModelsConfig,
+)
 from utils import FileManager, get_token_length_from_text
-from types_ import ArticleElement, ChatCompletionResponse, DataFolderConfig, ElementType, FragmentData, OpenAIConfig, OpenAIModelsConfig
 
 T = TypeVar('T')
 
@@ -58,9 +70,12 @@ class FragmentsProcessor:
                 ],
                 function_call = { 'name': 'get_fragment_data' },
             )
-            
-            fragment_data: FragmentData = json.loads(response['choices'][0]['message']['function_call']['arguments'].strip().replace('\n', ''))
+
+            fragment_data: FragmentData = {}
             fragment_data['id'] = counter
+            
+            fragment_data.update(json.loads(response['choices'][0]['message']['function_call']['arguments'].strip().replace('\n', '')))
+            
             fragment_data['content'] = element['text']
             fragment_data['original_reference'] = urlparse(element['url']).path[1:].split('/')[0]
 

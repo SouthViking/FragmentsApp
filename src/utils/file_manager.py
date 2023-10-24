@@ -1,6 +1,6 @@
 import os
-from typing import Callable
 from io import TextIOWrapper
+from typing import Callable
 
 from exceptions import FileNotFoundException, NotFileException
 
