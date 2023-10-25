@@ -145,13 +145,21 @@ class FragmentsProcessor:
 
         while attempts > 0:
             try:
-                response: ChatCompletionResponse = openai.ChatCompletion.create(
-                    model = request_data.get('model'),
-                    messages = request_data.get('messages', []),
-                    functions = request_data.get('functions', None),
-                    function_call = request_data.get('function_call', None),
-                    request_timeout = 60,
-                )
+                if request_data.get('functions') and request_data.get('function_call'):
+                    response: ChatCompletionResponse = openai.ChatCompletion.create(
+                        model = request_data.get('model'),
+                        messages = request_data.get('messages', []),
+                        functions = request_data.get('functions'),
+                        function_call = request_data.get('function_call'),
+                        request_timeout = 60,
+                    )
+
+                else:
+                    response: ChatCompletionResponse = openai.ChatCompletion.create(
+                        model = request_data.get('model'),
+                        messages = request_data.get('messages', []),
+                        request_timeout = 60,
+                    )
 
                 return response
                 
