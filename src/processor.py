@@ -71,7 +71,7 @@ class FragmentsProcessor:
         fragments: List[FragmentData] = []
 
         absolute_file_path = os.path.normpath(os.path.join(self.folders_config['input_path'], file_with_extension))
-        elements = self.get_sanitized_elements_from_file(absolute_file_path, (ElementType.ARTICLE.value, ArticleElement))[:5]
+        elements = self.get_sanitized_elements_from_file(absolute_file_path, (ElementType.ARTICLE.value, ArticleElement))
 
         self.logger.info(f'Se han encontrado {len(elements)} elementos para procesar.')
 
