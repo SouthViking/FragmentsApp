@@ -34,7 +34,6 @@ from utils import (
 T = TypeVar('T')
 
 class FragmentsProcessor:
-    # TODO: documentación
     MAX_TOKENS_TO_SEND = 1500
     MAX_RELATED_FRAGMENTS = 3
 
@@ -81,7 +80,7 @@ class FragmentsProcessor:
 
         self.logger.info(f'Procesamiento de {len(elements)} terminado. {len(fragments)} fragmentos obtenidos.')
 
-        self.calculate_fragments_relations(fragments, 3)
+        self.calculate_fragments_relations(fragments, self.MAX_RELATED_FRAGMENTS)
 
         return fragments
 
