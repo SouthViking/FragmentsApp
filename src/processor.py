@@ -199,6 +199,9 @@ class FragmentsProcessor:
             fragment['related_fragments_titles'] = []
 
             for related_fragment_index in indices_of_closest_fragments[:max_related_fragments]:
+                if fragments[related_fragment_index].get('id') is None or fragments[related_fragment_index].get('title') is None:
+                    continue
+
                 fragment['related_fragments'].append(fragments[related_fragment_index]['id'])
                 fragment['related_fragments_titles'].append(fragments[related_fragment_index]['title'])
 
