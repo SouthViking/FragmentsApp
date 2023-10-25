@@ -118,10 +118,10 @@ BASE_MODEL=gpt-3.5-turbo-0613
 EMBEDDING_MODEL=text-embedding-ada-002
 
 # [REQUERIDO] Token de la API de OpenAI para interactuar con los endpoints.
-OPENAI_API_KEY=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
+OPENAI_API_KEY=<API_TOKEN>
 
 # [REQUERIDO] Token de la API de OpenAI para interactuar con los endpoints para ser utilizado en pruebas.
-OPENAI_TEST_API_KEY=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
+OPENAI_TEST_API_KEY=<API_TOKEN>
 
 # [REQUERIDO] Modelo base a utilizar para la comunicación con OpenAI.
 BASE_TEST_MODEL=gpt-3.5-turbo-0613
