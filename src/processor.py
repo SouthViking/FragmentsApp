@@ -1,6 +1,8 @@
-from datetime import datetime
 import json
 import os
+import textwrap
+import time
+from datetime import datetime
 from io import TextIOWrapper
 from typing import List, Tuple, Type, TypeVar
 from urllib.parse import urlparse
@@ -14,6 +16,7 @@ from openai.embeddings_utils import (
 
 from types_ import (
     ArticleElement,
+    ChatCompletionRequest,
     ChatCompletionResponse,
     DataFolderConfig,
     ElementType,
@@ -21,7 +24,11 @@ from types_ import (
     OpenAIConfig,
     OpenAIModelsConfig,
 )
-from utils import FileManager, get_token_length_from_text
+from utils import (
+    FileManager,
+    get_token_length_from_text,
+    get_fragment_extraction_prompt_for_text,
+)
 
 T = TypeVar('T')
 
@@ -36,55 +43,96 @@ class FragmentsProcessor:
 
         self.file_manager = FileManager()
         self.folders_config = folder_paths
-
-    def process_file(self, file_with_extension: str):
-        counter = 0
+    
+    def generate_fragments_from_file(self, file_with_extension: str) -> List[FragmentData]:
         fragments: List[FragmentData] = []
 
         absolute_file_path = os.path.normpath(os.path.join(self.folders_config['input_path'], file_with_extension))
-        elements = self.get_sanitized_data_from_jsonl_file(absolute_file_path, (ElementType.ARTICLE.value, ArticleElement))        
+        elements = self.get_sanitized_elements_from_file(absolute_file_path, (ElementType.ARTICLE.value, ArticleElement))[:40]
+
+        for index, element in enumerate(elements):
+            fragment = self.generate_fragment_from_element(element, index)
+            fragments.append(fragment)
+
+        self.calculate_fragments_relations(fragments, 3)
+
+        return fragments
+
+    def generate_fragment_from_element(self, element: Type[T], id: int) -> FragmentData:
+        fragment_data: FragmentData = {}
+        fragment_data['id'] = id
+
+        if get_token_length_from_text(element['text'], self.models['base']) > self.MAX_TOKENS_TO_SEND:
+            # Como regla general especificada por OpenAI, un token corresponde aproximadamente a 4 caracteres.
+            # En este caso se utiliza esa relación para poder separar el texto en partes de acuerdo al máximo de tokens especificado.
+            text_chunks = textwrap.wrap(element['text'], self.MAX_TOKENS_TO_SEND * 4)
+
+            tags = {}
+            summary = []
+
+            for index, text_chunk in enumerate(text_chunks):
+                prompt = get_fragment_extraction_prompt_for_text(self.models['base'], text_chunk)
+                response = self.execute_chat_completion_request(prompt)
+
+                partial_fragment_data = self.get_arguments_from_function_call_response(response)
+
+                if index == 0:
+                    fragment_data['title'] = partial_fragment_data.get('title', '')
+
+                for tag in partial_fragment_data.get('tags', []):
+                    tags[tag.lower()] = 1
+                    
+                summary.append(partial_fragment_data.get('summary', ''))
+            
+            fragment_data['tags'] = list(tags.keys())
+            fragment_data['summary'] = '\n'.join(summary)
+
+        else:
+            prompt = get_fragment_extraction_prompt_for_text(self.models['base'], element['text'])
+            response = self.execute_chat_completion_request(prompt)
+
+            partial_fragment_data = self.get_arguments_from_function_call_response(response)
+            fragment_data.update(partial_fragment_data)
+            
+        fragment_data['content']= element['text']
+        fragment_data['original_reference'] = urlparse(element['url']).path[1:].split('/')[0]
+
+        return fragment_data
+
+    def execute_chat_completion_request(self, request_data: ChatCompletionRequest):
+        attempts = 3
+
+        while attempts > 0:
+            try:
+                response: ChatCompletionResponse = openai.ChatCompletion.create(
+                    model = request_data.get('model'),
+                    messages = request_data.get('messages', []),
+                    functions = request_data.get('functions', None),
+                    function_call = request_data.get('function_call', None),
+                    request_timeout = 60,
+                )
+
+                return response
+                
+            except Exception as error:
+                print(f'Error: Se ha producido un error durante la comunicación con API de OpenAI: {str(error)}')
+                attempts -= 1
+
+                time.sleep(5)
+
+        return None
+    
+    def get_arguments_from_function_call_response(self, response: ChatCompletionResponse) -> dict:
+        if response is None:
+            return {}
+
+        try:
+            arguments = json.loads(response['choices'][0]['message']['function_call']['arguments'].strip().replace('\n', ''))
+            return arguments
         
-        for element in elements:
-            if get_token_length_from_text(element['text'], self.models['base']) > self.MAX_TOKENS_TO_SEND:
-                # TODO: Debido a que el texto es muy largo, hay que dividirlo y enviarlo por partes. (batch)
-                # TODO: Agregar control igualmente del máximo de tokens permitidos por el modelo a utilizar.
-                continue
-
-            response: ChatCompletionResponse = openai.ChatCompletion.create(
-                model = self.models['base'],
-                messages = [{ 'role': 'user', 'content': f'titulo, resumen y palabras_claves del texto: "{element["text"]}"' }],
-                functions = [
-                    {
-                        'name': 'get_fragment_data',
-                        'description': 'Obtiene la información principal del elemento',
-                        'parameters': {
-                            'type': 'object',
-                            'properties': {
-                                'title': { 'title': 'titulo', 'type': 'string' },
-                                'summary': { 'title': 'resumen', 'type': 'string' },
-                                'tags': { 'title': 'palabras_claves', 'type': 'array', 'items': { 'type': 'string' } }
-                            },
-                        },
-                        'required': ['title', 'summary', 'tags']
-                    },
-                ],
-                function_call = { 'name': 'get_fragment_data' },
-            )
-
-            fragment_data: FragmentData = {}
-            fragment_data['id'] = counter
-            
-            fragment_data.update(json.loads(response['choices'][0]['message']['function_call']['arguments'].strip().replace('\n', '')))
-            
-            fragment_data['content'] = element['text']
-            fragment_data['original_reference'] = urlparse(element['url']).path[1:].split('/')[0]
-
-            fragments.append(fragment_data)
-
-            counter += 1
-
-        self.calculate_fragments_relations(fragments, self.MAX_RELATED_FRAGMENTS)
-        self.export_fragments(fragments)
+        except Exception as error:
+            print(f'Error durante la conversión de respuesta de OpenAI: {str(error)}')
+            return {}
 
     def calculate_fragments_relations(self, fragments: List[FragmentData], max_related_fragments: int):
         """
@@ -119,13 +167,13 @@ class FragmentsProcessor:
 
         self.file_manager.write_to_file(absolute_output_file_path, fragments_writer_callback)
 
-    def get_sanitized_data_from_jsonl_file(self, absolute_file_path: str, element_type_target: Tuple[str, Type[T]]) -> List[T]:
+    def get_sanitized_elements_from_file(self, absolute_file_path: str, element_type_target: Tuple[str, Type[T]]) -> List[T]:
         """
             Permite obtener los datos desde el archivo jsonl especificado y convertirlos a diccionarios válidos.
 
             Args:
                 absolute_file_path: La ruta absoluta del archivo del cual se van a obtener los datos.
-                element_type_target: Una tupla que contiene en primer lugar el nombre del tipo a filtrar y en segundi
+                element_type_target: Una tupla que contiene en primer lugar el nombre del tipo a filtrar y en segundo
                     lugar el tipo.
                     
             Returns:

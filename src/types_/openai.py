@@ -26,3 +26,26 @@ class ChatCompletionResponse(TypedDict):
     model: str
     choices: List[ChoiceData]
     usage: UsageData
+
+class MessageRequestData(TypedDict):
+    role: str
+    content: str
+
+class FunctionRequestParametersData(TypedDict):
+    type: str
+    properties: dict
+
+class FunctionRequestData(TypedDict):
+    name: str
+    description: str
+    parameters: FunctionRequestParametersData
+    required: List[str]
+
+class FunctionCallRequestData(TypedDict):
+    name: str
+
+class ChatCompletionRequest(TypedDict):
+    model: str
+    messages: List[MessageRequestData]
+    functions: List[FunctionRequestData]
+    function_call: FunctionCallRequestData

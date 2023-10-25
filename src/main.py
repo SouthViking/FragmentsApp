@@ -26,7 +26,8 @@ def main():
     }
 
     processor = FragmentsProcessor(folders_config, openai_config)
-    processor.process_file(os.environ.get('INPUT_FILE'))
+    fragments = processor.generate_fragments_from_file(os.environ.get('INPUT_FILE'))
+    processor.export_fragments(fragments)
 
 if __name__ == '__main__':
     main()
